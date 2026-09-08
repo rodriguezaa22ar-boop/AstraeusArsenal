@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+"$ROOT/bin/dev-test"
+"$ROOT/bin/dev-lint"
+"$ROOT/bin/dev-capabilities"
+"$ROOT/bin/dev-adapters"
+"$ROOT/bin/dev-policy"
+"$ROOT/bin/dev-approval"
+"$ROOT/bin/dev-schema"
+"$ROOT/bin/dev-language-safety"
+"$ROOT/bin/dev-evidence"
+"$ROOT/bin/dev-decisions"
+"$ROOT/bin/dev-portability"
+"$ROOT/bin/dev-stress"
+
+printf 'qa: ok\n'

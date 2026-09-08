@@ -1,0 +1,95 @@
+{
+  "schema_version": "atlas.public_trust_manifest.v1",
+  "metadata_only": true,
+  "repositories": {
+    "private": {
+      "name": "atlas-lab-toolkit",
+      "role": "private operator context, runtime artifacts, configuration, and retained private history"
+    },
+    "public": {
+      "name": "atlas-trust-infrastructure",
+      "role": "public trust contracts, shell-native implementation, schemas, tests, examples, verification, and reviewer surface"
+    }
+  },
+  "allow_paths": [
+    ".editorconfig",
+    ".github/",
+    ".gitignore",
+    "AGENTS.md",
+    "CODE_OF_CONDUCT.md",
+    "approval/",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "README.md",
+    "SECURITY.md",
+    "adapters/",
+    "bin/",
+    "capabilities.yaml",
+    "containers/",
+    "docs/",
+    "evidence/",
+    "etc/",
+    "examples/",
+    "exports/public-trust-manifest.json",
+    "governance/",
+    "index.html",
+    "lib/",
+    "nix/",
+    "ledger/",
+    "policy/",
+    "schemas/",
+    "shell.nix",
+    "tests/",
+    "tools/"
+  ],
+  "forbidden_paths": [
+    ".env",
+    ".netrc",
+    "private/",
+    "sessions/",
+    "state/",
+    "shared/",
+    "logs/",
+    "reports/",
+    "releases/",
+    "targets/",
+    "docs/retention/reviewer-packages/"
+  ],
+  "private_markers": [
+    "ATLAS_PRIVATE_LAB_HOST=",
+    "ATLAS_PRIVATE_OPERATOR=",
+    "ATLAS_PRIVATE_TARGET=",
+    "ATLAS_PRIVATE_SECRET_REF="
+  ],
+  "marker_exempt_paths": [
+    "exports/public-trust-manifest.json",
+    "tests/"
+  ],
+  "forbidden_content_classes": [
+    "credentials",
+    "approval credentials",
+    "tokens",
+    "private keys",
+    "session cookies",
+    "raw customer data",
+    "private target records",
+    "raw packet captures",
+    "full request bodies",
+    "full response bodies",
+    "raw model inputs",
+    "raw prompts",
+    "raw model outputs",
+    "environment-resolved endpoints",
+    "self-granted capabilities",
+    "self-issued approvals",
+    "runtime timestamps and process identifiers",
+    "temporary and host-specific execution paths",
+    "operator history",
+    "unredacted runtime evidence",
+    "host-specific private lab identifiers"
+  ],
+  "validation": {
+    "check_command": "./bin/export-public-trust --check",
+    "export_command": "./bin/export-public-trust --out <dir>"
+  }
+}

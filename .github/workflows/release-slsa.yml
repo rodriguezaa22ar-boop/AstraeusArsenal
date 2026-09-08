@@ -1,0 +1,161 @@
+name: Release SLSA Provenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: Release artifact name without extension
+        required: false
+        default: atlas-trust-infrastructure
+  push:
+    tags:
+      - 'atlas-v*'
+      - 'atlas-release-*'
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-slsa-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-attest:
+    name: Build and attest release artifact
+    runs-on: ubuntu-latest
+    # Quiet nix-shell's default shell-selection lookup. Packages still come
+    # from shell.nix -> nix/nixpkgs.nix.
+    env:
+      NIX_BUILD_SHELL: bash
+
+    steps:
+      - name: Checkout
+        # actions/checkout v6 pinned to immutable commit.
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve release commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+          printf 'ATLAS_RELEASE_COMMIT=%s\n' "$release_commit" >>"$GITHUB_ENV"
+
+      - name: Install Nix
+        # cachix/install-nix-action v31 pinned to immutable commit.
+        uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3
+
+      - name: Prepare release branch context
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin '+refs/heads/main:refs/remotes/origin/main'
+
+          origin_main="$(git rev-parse origin/main)"
+          if [ "$ATLAS_RELEASE_COMMIT" != "$origin_main" ]; then
+            printf 'Tagged commit does not match origin/main\n' >&2
+            printf 'tag commit: %s\n' "$ATLAS_RELEASE_COMMIT" >&2
+            printf 'origin/main: %s\n' "$origin_main" >&2
+            exit 1
+          fi
+
+          git checkout -B main "$ATLAS_RELEASE_COMMIT"
+          git branch --set-upstream-to=origin/main main
+
+      - name: Check whitespace
+        run: git diff --check
+
+      - name: Run local QA gate
+        run: nix-shell --run './bin/dev-qa'
+
+      - name: Prepare Atlas v1 readiness layout
+        run: mkdir -p logs releases reports sessions state/atlas state/intel targets
+
+      - name: Check Atlas v1 readiness
+        run: nix-shell --run './tools/atlas/bin/atlas v1 status --strict'
+
+      - name: Build source release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          ref_name="${GITHUB_REF_NAME:-manual}"
+          base_name="${{ inputs.release_name }}"
+          if [ -z "$base_name" ]; then
+            base_name="atlas-trust-infrastructure"
+          fi
+          artifact_base="${base_name}-${ref_name}-${ATLAS_RELEASE_COMMIT::12}"
+          artifact_path="dist/${artifact_base}.tar.gz"
+
+          git archive \
+            --format=tar \
+            --prefix="${artifact_base}/" \
+            "$ATLAS_RELEASE_COMMIT" |
+            gzip -n >"$artifact_path"
+
+          sha256sum "$artifact_path" >"${artifact_path}.sha256"
+          {
+            printf 'artifact=%s\n' "$artifact_path"
+            printf 'artifact_base=%s\n' "$artifact_base"
+          } >>"$GITHUB_ENV"
+
+      - name: Check release artifact metadata boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          contents_manifest="dist/${artifact_base}.contents.txt"
+          tar -tzf "$artifact" >"$contents_manifest"
+
+          if grep -E "^${artifact_base}/(sessions|state|shared|reports|logs|releases|targets|\\.tmp)(/|$)" "$contents_manifest"; then
+            printf 'Release artifact contains runtime state path\n' >&2
+            exit 1
+          fi
+
+          if grep -Ei '(secret|credential|token|private-key|private_key|session-cookie|packet-capture|pcap|raw-invoice|raw_invoice|raw-contract|raw_contract|customer-data|customer_data|payment-data|payment_data|request-body|request_body|response-body|response_body|runtime-artifact|runtime_artifact|unredacted)' "$contents_manifest"; then
+            printf 'Release artifact contains forbidden sensitive path marker\n' >&2
+            exit 1
+          fi
+
+          printf 'contents_manifest=%s\n' "$contents_manifest" >>"$GITHUB_ENV"
+
+      - name: Record artifact metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            printf 'commit=%s\n' "$ATLAS_RELEASE_COMMIT"
+            printf 'github_sha=%s\n' "$GITHUB_SHA"
+            printf 'ref=%s\n' "$GITHUB_REF"
+            printf 'ref_name=%s\n' "$GITHUB_REF_NAME"
+            printf 'workflow=%s\n' "$GITHUB_WORKFLOW"
+            printf 'run_id=%s\n' "$GITHUB_RUN_ID"
+            printf 'artifact=%s\n' "$artifact"
+            printf 'contents_manifest=%s\n' "$contents_manifest"
+            printf 'metadata_boundary=public-metadata-only\n'
+            printf 'sha256='
+            awk '{ print $1 }' "${artifact}.sha256"
+          } >"dist/${artifact_base}.metadata.env"
+
+      - name: Upload release artifact
+        # actions/upload-artifact v4 pinned to immutable commit.
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ${{ env.artifact_base }}
+          path: |
+            ${{ env.artifact }}
+            ${{ env.artifact }}.sha256
+            ${{ env.contents_manifest }}
+            dist/${{ env.artifact_base }}.metadata.env
+          if-no-files-found: error
+
+      - name: Generate SLSA build provenance attestation
+        # actions/attest v4 pinned to immutable commit.
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        with:
+          subject-path: ${{ env.artifact }}

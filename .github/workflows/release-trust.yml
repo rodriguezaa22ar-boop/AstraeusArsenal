@@ -1,0 +1,168 @@
+name: Release Trust
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-trust-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  retained-evidence:
+    name: Verify retained release trust evidence
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        # actions/checkout v6 pinned to immutable commit.
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install Nix
+        # cachix/install-nix-action v31 pinned to immutable commit.
+        uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3
+
+      - name: Verify latest retained release trust chain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          latest_retention_tag="$(git tag -l 'atlas-retention-m*' | sort -V | tail -n 1)"
+          if [ -z "$latest_retention_tag" ]; then
+            printf 'No atlas-retention-m* tag found\n' >&2
+            exit 1
+          fi
+
+          retention_commit="$(git rev-list -n 1 "$latest_retention_tag")"
+          release_worktree=".tmp/release-trust-check"
+          release_output_dir="$(mktemp -d)"
+          retained_nix_path="nixpkgs=$GITHUB_WORKSPACE/nix/nixpkgs.nix"
+          if [ ! -f "$GITHUB_WORKSPACE/nix/nixpkgs.nix" ]; then
+            printf 'Current-source pinned nixpkgs file is missing\n' >&2
+            exit 1
+          fi
+          rm -rf "$release_worktree"
+          git worktree add --detach "$release_worktree" "$retention_commit"
+          trap 'git worktree remove --force "$release_worktree" >/dev/null 2>&1 || true; rm -rf "$release_output_dir"' EXIT
+
+          (
+            cd "$release_worktree"
+
+            printf 'Release Trust: latest retained evidence tag=%s retention_commit=%s\n' "$latest_retention_tag" "$retention_commit"
+            printf 'Release Trust: active workflow source commit=%s is not certified production-ready by this retained-evidence gate\n' "${GITHUB_SHA:-unknown}"
+
+            git checkout -B release-trust-check "$retention_commit"
+            git update-ref refs/remotes/origin/release-trust-retained "$retention_commit"
+            git branch --set-upstream-to=origin/release-trust-retained release-trust-check
+
+            latest_manifest="$(find docs/retention/releases -maxdepth 1 -type f -name '*.manifest.json' 2>/dev/null | sort -V | tail -n 1)"
+            if [ -z "$latest_manifest" ]; then
+              printf 'No retained release artifact manifest found\n' >&2
+              exit 1
+            fi
+
+            release_packet="$(jq -r '.release_packet.path // empty' "$latest_manifest")"
+            release_commit="$(jq -r '.release.commit // empty' "$latest_manifest")"
+            release_tag="$(jq -r '.signed_tag.name // empty' "$latest_manifest")"
+            public_key="$(jq -r '.signing_public_key.path // empty' "$latest_manifest")"
+            provenance="$(jq -r '.provenance.path // empty' "$latest_manifest")"
+            production_dry_run="$(jq -r '.production_dry_run.path // empty' "$latest_manifest")"
+            milestone_note="$(jq -r '.milestone_note.path // empty' "$latest_manifest")"
+            printf 'Release Trust: manifest=%s release_commit=%s\n' "$latest_manifest" "$release_commit"
+
+            for required_value in "$release_packet" "$release_commit" "$release_tag" "$public_key" "$provenance" "$production_dry_run" "$milestone_note"; do
+              if [ -z "$required_value" ]; then
+                printf 'Latest release artifact manifest is missing required release-trust metadata\n' >&2
+                exit 1
+              fi
+            done
+
+            for required_file in "$latest_manifest" "$release_packet" "$public_key" "$provenance" "$production_dry_run" "$milestone_note"; do
+              if [ ! -f "$required_file" ]; then
+                printf 'Required retained release-trust file is missing: %s\n' "$required_file" >&2
+                exit 1
+              fi
+            done
+
+            evidence_retention_tag=""
+            evidence_retention_commit=""
+            for candidate_tag in $(git tag -l 'atlas-retention-m*' | sort -Vr); do
+              candidate_commit="$(git rev-list -n 1 "$candidate_tag")"
+              candidate_parent="$(git rev-parse "$candidate_commit^" 2>/dev/null || true)"
+              if [ "$candidate_parent" != "$release_commit" ]; then
+                continue
+              fi
+
+              missing_required_path=0
+              for required_path in "$latest_manifest" "$release_packet" "$public_key" "$provenance" "$production_dry_run" "$milestone_note"; do
+                if ! git cat-file -e "$candidate_commit:$required_path" 2>/dev/null; then
+                  missing_required_path=1
+                  break
+                fi
+              done
+
+              if [ "$missing_required_path" -eq 0 ]; then
+                evidence_retention_tag="$candidate_tag"
+                evidence_retention_commit="$candidate_commit"
+                break
+              fi
+            done
+
+            if [ -z "$evidence_retention_tag" ]; then
+              printf 'No retained evidence tag found for release commit %s and manifest %s\n' "$release_commit" "$latest_manifest" >&2
+              exit 1
+            fi
+            printf 'Release Trust: retained evidence tag=%s evidence_commit=%s\n' "$evidence_retention_tag" "$evidence_retention_commit"
+
+            gpg --batch --no-autostart --import "$public_key"
+
+            # Current source uses shell.nix -> nix/nixpkgs.nix directly. Retained
+            # historical commits may predate M195 and still import <nixpkgs>, so
+            # this compatibility NIX_PATH points those old worktrees at the
+            # active checkout's pinned source. It does not restore a moving
+            # nixos-unstable channel.
+            NIX_PATH="$retained_nix_path" nix-shell --run "./tools/atlas/bin/atlas release verify $release_packet --commit $release_commit"
+            NIX_PATH="$retained_nix_path" nix-shell --run "./tools/atlas/bin/atlas release manifest-verify $latest_manifest --commit $release_commit"
+
+            NIX_PATH="$retained_nix_path" nix-shell --run "./tools/atlas/bin/atlas release replay $release_packet --json" |
+              awk 'BEGIN { json = 0 } /^\{/ { json = 1 } json { print }' |
+              tee "$release_output_dir/release-replay.json"
+            jq -e '
+              .schema_version == "atlas.release_replay.v1" and
+              .overall == "verified"
+            ' "$release_output_dir/release-replay.json" >/dev/null
+
+            git tag -v "$release_tag"
+
+            git checkout -B release-trust-check "$evidence_retention_commit"
+            git update-ref refs/remotes/origin/release-trust-retained "$evidence_retention_commit"
+            git branch --set-upstream-to=origin/release-trust-retained release-trust-check
+            printf 'Release Trust verifies retained release evidence from %s for release commit %s.\n' "$evidence_retention_tag" "$release_commit"
+            printf 'Release Trust: production explainability runs where retained evidence exists: %s (%s)\n' "$evidence_retention_tag" "$evidence_retention_commit"
+            printf 'This does not certify the active PR/source commit as production-ready.\n'
+
+            NIX_PATH="$retained_nix_path" nix-shell --run './tools/atlas/bin/atlas production status --strict --explain' |
+              tee "$release_output_dir/production-explain.txt"
+            grep -q 'production-ready under the local Atlas contract' "$release_output_dir/production-explain.txt"
+            if grep -Fxq 'Overall: production-ready' "$release_output_dir/production-explain.txt"; then
+              printf 'Standalone production-ready claim found in explain output\n' >&2
+              exit 1
+            fi
+            grep -q 'not external audit' "$release_output_dir/production-explain.txt"
+            grep -q 'not certification' "$release_output_dir/production-explain.txt"
+            grep -q 'not legal compliance' "$release_output_dir/production-explain.txt"
+            grep -q 'not tamper-proof infrastructure' "$release_output_dir/production-explain.txt"
+            grep -q 'not enterprise deployment approval' "$release_output_dir/production-explain.txt"
+            grep -q 'not external SLSA certification' "$release_output_dir/production-explain.txt"
+          )

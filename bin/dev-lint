@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+atlas_libs=()
+
+if compgen -G "$ROOT/tools/atlas/lib/*.sh" >/dev/null; then
+	atlas_libs=("$ROOT"/tools/atlas/lib/*.sh)
+fi
+
+shellcheck -x \
+	"$ROOT/bin/intelctl" \
+	"$ROOT/bin/labctl" \
+	"$ROOT/bin/dev-lint" \
+	"$ROOT/bin/dev-fmt" \
+	"$ROOT/bin/dev-test" \
+	"$ROOT/bin/dev-adapters" \
+	"$ROOT/bin/dev-approval" \
+	"$ROOT/bin/dev-capabilities" \
+	"$ROOT/bin/dev-decisions" \
+	"$ROOT/bin/dev-evidence" \
+	"$ROOT/bin/dev-policy" \
+	"$ROOT/bin/dev-schema" \
+	"$ROOT/bin/dev-governance" \
+	"$ROOT/bin/dev-host-check" \
+	"$ROOT/bin/dev-language-safety" \
+	"$ROOT/bin/dev-portability" \
+	"$ROOT/bin/dev-stress" \
+	"$ROOT/bin/dev-qa" \
+	"$ROOT/bin/export-public-trust" \
+	"$ROOT/lib/common.sh" \
+	"$ROOT/lib/intel.sh" \
+	"${atlas_libs[@]}" \
+	"$ROOT/tools"/*/bin/*
+
+printf 'lint: ok\n'

@@ -1,0 +1,59 @@
+name: QA
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    name: Nix QA
+    runs-on: ubuntu-latest
+    # Quiet nix-shell's default shell-selection lookup. Packages still come
+    # from shell.nix -> nix/nixpkgs.nix.
+    env:
+      NIX_BUILD_SHELL: bash
+
+    steps:
+      - name: Checkout
+        # actions/checkout v6 pinned to immutable commit.
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Prepare pull request branch context
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin '+refs/heads/main:refs/remotes/origin/main'
+          git checkout -B "${GITHUB_HEAD_REF:-pull-request}" HEAD
+          git branch --set-upstream-to=origin/main "${GITHUB_HEAD_REF:-pull-request}"
+
+      - name: Install Nix
+        # cachix/install-nix-action v31 pinned to immutable commit.
+        uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3
+
+      - name: Check whitespace
+        run: git diff --check
+
+      - name: Run local QA gate
+        run: nix-shell --run './bin/dev-qa'
+
+      - name: Prepare Atlas v1 readiness layout
+        run: mkdir -p logs releases reports sessions state/atlas state/intel targets
+
+      - name: Check Atlas v1 readiness
+        run: nix-shell --run './tools/atlas/bin/atlas v1 status --strict'

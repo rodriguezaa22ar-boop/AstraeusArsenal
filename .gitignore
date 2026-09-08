@@ -1,0 +1,18 @@
+# Local dev noise
+.direnv/
+result
+tmp/
+
+# Runtime data and generated outputs
+sessions/
+state/
+shared/
+logs/
+reports/
+releases/
+docs/retention/reviewer-packages/
+targets/*.env
+.tmp/
+
+# Retired/local target records
+docs/retired-targets/*.env
