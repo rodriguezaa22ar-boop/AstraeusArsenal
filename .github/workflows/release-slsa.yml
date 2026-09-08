@@ -156,6 +156,6 @@ jobs:
 
       - name: Generate SLSA build provenance attestation
         # actions/attest v4 pinned to immutable commit.
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        uses: actions/attest@v4
         with:
           subject-path: ${{ env.artifact }}

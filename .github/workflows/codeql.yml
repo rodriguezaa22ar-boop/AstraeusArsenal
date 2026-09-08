@@ -29,6 +29,9 @@ jobs:
       - name: Checkout
         # actions/checkout v6 pinned to immutable commit.
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Initialize CodeQL
         # github/codeql-action v4 pinned to immutable commit.

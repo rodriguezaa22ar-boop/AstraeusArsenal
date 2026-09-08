@@ -1,15 +1,38 @@
-# Atlas Trust Infrastructure
+# Atlas Lab Toolkit
 
-Atlas is metadata-first integrity infrastructure for operational proof. It supports audit-ready evidence, release governance, CI integrity review, AI-agent action review, approval integrity, evidence sufficiency, and reviewer decision support. It acts as a trust overlay for authorized work around GitHub, Nix, SSH, tmux, scanners, approval tools, and business systems. It does not replace GitHub, Nix, SSH, tmux, scanners, approval tools, or business systems. It records and verifies the proof chain around them.
+Atlas Lab Toolkit is the unified operator toolkit for Atlas: metadata-first
+proof infrastructure for critical digital actions. It combines the public trust
+surface from `atlas-trust-infrastructure` with the private implementation and
+operator runtime from `atlas-lab-toolkit`.
 
 The chain records who requested an action, what capability and policy applied,
 whether approval was required, which evidence and artifact references were
 emitted, what commit or packet contains the result, and how a reviewer can
 replay the proof.
 
-## Public Repository Purpose
+## Private Repository Purpose
 
-This public repository is the reviewer-facing trust surface for Atlas: safety boundaries, governance contracts, release evidence, business-flow evidence, and readiness language. The private `atlas-lab-toolkit` repository remains the implementation home for retained engineering context and operator runtime history. See [docs/REPOSITORY_BOUNDARY.md](docs/REPOSITORY_BOUNDARY.md) and `exports/public-trust-manifest.json`.
+This repository is the implementation and operator runtime source for Atlas. It
+includes the public trust surface from `atlas-trust-infrastructure`, the
+operator tooling from `atlas-lab-toolkit`, shared libraries, test suites,
+release workflows, and the full governance stack.
+
+The public `atlas-trust-infrastructure` repository is the public trust surface
+for Atlas. This private repository currently trails the public trust repository
+and should be treated as private implementation history until a governance sync
+is intentionally performed.
+
+## Start Here By Role
+
+- New reader: [docs/ATLAS_ONE_PAGE.md](docs/ATLAS_ONE_PAGE.md)
+- Public trust surface: [docs/PUBLIC_TRUST_SURFACE.md](docs/PUBLIC_TRUST_SURFACE.md)
+- Security operator: [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md)
+- SLSA reviewer: [docs/atlas/SLSA_CLAIM.md](docs/atlas/SLSA_CLAIM.md)
+- Business owner: [docs/atlas/BUSINESS_FLOW_EVIDENCE.md](docs/atlas/BUSINESS_FLOW_EVIDENCE.md)
+- Private status: [docs/PRIVATE_REPO_STATUS.md](docs/PRIVATE_REPO_STATUS.md)
+- Release reviewer: [docs/RELEASE_TRUST.md](docs/RELEASE_TRUST.md)
+- Governance reader: [docs/governance/CAPABILITY_MODEL.md](docs/governance/CAPABILITY_MODEL.md)
+- Demo path: [docs/demo/DEMO_OPERATION.md](docs/demo/DEMO_OPERATION.md)
 
 ## Why Proof Chains, Not Just Logs?
 

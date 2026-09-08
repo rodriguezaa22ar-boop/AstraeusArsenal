@@ -7,6 +7,8 @@ end to end with synthetic demo data. It is designed for reviewers who need to
 see the shape of an operation without touching a live target or reading private
 evidence bodies.
 
+The demo shows an authorized local demo operation with synthetic data only.
+
 The demo shows:
 
 1. target registration
@@ -115,7 +117,17 @@ plan_id="$(
 ./tools/atlas/bin/atlas validation show "$plan_id"
 ```
 
-## Report And Handoff
+## Findings And Validation State
+
+Inspect validation findings and retest results:
+
+```bash
+./tools/atlas/bin/atlas validation show "$plan_id"
+./tools/atlas/bin/atlas finding review-queue
+./tools/atlas/bin/atlas finding review-packet
+```
+
+## Operation Reports
 
 Generate operation review artifacts:
 
@@ -250,3 +262,5 @@ Stop and investigate before closeout if any of these appear:
 - accepted risks are expired
 - report, handoff, closeout, audit, or archive freshness is stale
 - `atlas op trust-chain demo-operation --strict` does not report current
+- raw secrets, packet captures, credentials, tokens, or any sensitive data
+  appear anywhere in retained metadata or demo artifacts

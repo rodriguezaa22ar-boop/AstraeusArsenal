@@ -11,6 +11,8 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  attestations: write
 
 concurrency:
   group: qa-${{ github.ref }}
@@ -33,14 +35,16 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Prepare pull request branch context
+      - name: Fetch retained release refs
         if: github.event_name == 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin '+refs/heads/main:refs/remotes/origin/main'
-          git checkout -B "${GITHUB_HEAD_REF:-pull-request}" HEAD
-          git branch --set-upstream-to=origin/main "${GITHUB_HEAD_REF:-pull-request}"
+          git fetch --unshallow --tags origin
+          git fetch --force --tags origin '+refs/tags/*:refs/tags/*'
+          git checkout -B "pull-request" HEAD
+          git branch --set-upstream-to=origin/main "pull-request"
 
       - name: Install Nix
         # cachix/install-nix-action v31 pinned to immutable commit.

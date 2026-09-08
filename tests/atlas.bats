@@ -22,6 +22,7 @@ setup() {
     "$TEST_ROOT/toolkit/tools/vector/bin/vector"
   unset LAB_CONFIG
   export LAB_ROOT="$TEST_ROOT/toolkit"
+  mkdir -p "$TEST_ROOT/toolkit/targets" "$TEST_ROOT/toolkit/sessions" "$TEST_ROOT/toolkit/state/atlas"
 }
 
 teardown() {

@@ -72,9 +72,10 @@ The release SLSA workflow should include:
   forbidden sensitive path markers before upload
 - artifact upload
 - `actions/checkout`, `cachix/install-nix-action`, `actions/upload-artifact`,
-  and `actions/attest` pinned to immutable commit SHAs
-- `actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26`
-- `subject-path` pointing to the generated release artifact
+  - `actions/attest` pinned to immutable commit SHAs
+  - `actions/attest@v4`
+  - `actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26`
+  - `subject-path` pointing to the generated release artifact
 - optional official generic-generator workflow:
   - `slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0`
   - resolved generator tag commit
@@ -88,6 +89,7 @@ The release SLSA workflow should include:
   - `contents: read`
   - `id-token: write`
   - `attestations: write`
+  - `artifact-metadata: write`
 
 ## Verification Rules
 
