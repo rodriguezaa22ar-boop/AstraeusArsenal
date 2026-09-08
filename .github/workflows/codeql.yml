@@ -28,14 +28,14 @@ jobs:
     steps:
       - name: Checkout
         # actions/checkout v6 pinned to immutable commit.
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           fetch-tags: true
 
       - name: Initialize CodeQL
         # github/codeql-action v4 pinned to immutable commit.
-        uses: github/codeql-action/init@7211b7c8077ea37d8641b6271f6a365a22a5fbfa
+        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938
         with:
           languages: actions
           build-mode: none
@@ -43,6 +43,6 @@ jobs:
 
       - name: Perform CodeQL Analysis
         # github/codeql-action v4 pinned to immutable commit.
-        uses: github/codeql-action/analyze@7211b7c8077ea37d8641b6271f6a365a22a5fbfa
+        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938
         with:
           category: "/language:actions"
