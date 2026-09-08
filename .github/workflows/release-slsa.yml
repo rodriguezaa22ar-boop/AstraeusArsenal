@@ -33,7 +33,7 @@ jobs:
     steps:
       - name: Checkout
         # actions/checkout v6 pinned to immutable commit.
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -47,7 +47,7 @@ jobs:
 
       - name: Install Nix
         # cachix/install-nix-action v31 pinned to immutable commit.
-        uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
 
       - name: Prepare release branch context
         if: github.ref_type == 'tag'
@@ -156,6 +156,6 @@ jobs:
 
       - name: Generate SLSA build provenance attestation
         # actions/attest v4 pinned to immutable commit.
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
         with:
           subject-path: ${{ env.artifact }}
